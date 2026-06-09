@@ -22,14 +22,14 @@ const TIMERS = [
 ];
 
 const FILTERS = [
-  { id: 'none',   label: 'None',   icon: '🎞️', css: '' },
-  { id: 'kawaii', label: 'Kawaii', icon: '🌸', css: 'hue-rotate(320deg) saturate(1.3) brightness(1.05)' },
-  { id: 'sakura', label: 'Sakura', icon: '🌺', css: 'sepia(0.3) saturate(1.5) hue-rotate(320deg)' },
-  { id: 'anime',  label: 'Anime',  icon: '✨', css: 'contrast(1.15) saturate(1.4) brightness(1.08)' },
-  { id: 'y2k',    label: 'Y2K',    icon: '💿', css: 'hue-rotate(200deg) saturate(1.6) contrast(1.1)' },
-  { id: 'retro',  label: 'Retro',  icon: '📷', css: 'sepia(0.6) contrast(1.1) brightness(0.95)' },
-  { id: 'bw',     label: 'B&W',    icon: '🖤', css: 'grayscale(1) contrast(1.15)' },
-  { id: 'dreamy', label: 'Dreamy', icon: '🌙', css: 'hue-rotate(240deg) saturate(0.8) brightness(1.1)' },
+  { id: 'none',   label: 'None',   icon: '', css: '' },
+  { id: 'kawaii', label: 'Kawaii', icon: '', css: 'hue-rotate(320deg) saturate(1.3) brightness(1.05)' },
+  { id: 'sakura', label: 'Sakura', icon: '', css: 'sepia(0.3) saturate(1.5) hue-rotate(320deg)' },
+  { id: 'anime',  label: 'Anime',  icon: '', css: 'contrast(1.15) saturate(1.4) brightness(1.08)' },
+  { id: 'y2k',    label: 'Y2K',    icon: '', css: 'hue-rotate(200deg) saturate(1.6) contrast(1.1)' },
+  { id: 'retro',  label: 'Retro',  icon: '', css: 'sepia(0.6) contrast(1.1) brightness(0.95)' },
+  { id: 'bw',     label: 'B&W',    icon: '', css: 'grayscale(1) contrast(1.15)' },
+  { id: 'dreamy', label: 'Dreamy', icon: '', css: 'hue-rotate(240deg) saturate(0.8) brightness(1.1)' },
 ];
 
 // ── State ────────────────────────────────────
@@ -193,7 +193,7 @@ function applyLiveFilter() {
 
 // ── Particle Animation ───────────────────────
 
-const PARTICLE_EMOJIS = ['✨', '🌸', '💕', '⭐', '🌟', '💫', '🌺', '💖'];
+const PARTICLE_EMOJIS = ['', '', '', '', '', '', '', ''];
 const particles = [];
 
 function spawnParticle() {
