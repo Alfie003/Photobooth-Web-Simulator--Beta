@@ -1,10 +1,11 @@
-/* ============================================
-   PHOTOBOOTH — script.js
-   ============================================ */
+/* ============================================================
+   script.js  —  Camera, UI, Capture, Collage, Download
+   Depends on: filters.js (PhotoboothGL, AESTHETIC_FILTERS)
+   ============================================================ */
 
 'use strict';
 
-// ── Config ──────────────────────────────────
+// ── Config ───────────────────────────────────────────────────
 
 const LAYOUTS = [
   { id: 'strip', label: 'Strip', cols: 1, rows: 4, count: 4 },
@@ -21,45 +22,37 @@ const TIMERS = [
   { value: 10, label: '10s' },
 ];
 
-const FILTERS = [
-  { id: 'none',   label: 'None',   icon: '', css: '' },
-  { id: 'kawaii', label: 'Kawaii', icon: '', css: 'hue-rotate(320deg) saturate(1.3) brightness(1.05)' },
-  { id: 'sakura', label: 'Sakura', icon: '', css: 'sepia(0.3) saturate(1.5) hue-rotate(320deg)' },
-  { id: 'anime',  label: 'Anime',  icon: '', css: 'contrast(1.15) saturate(1.4) brightness(1.08)' },
-  { id: 'y2k',    label: 'Y2K',    icon: '', css: 'hue-rotate(200deg) saturate(1.6) contrast(1.1)' },
-  { id: 'retro',  label: 'Retro',  icon: '', css: 'sepia(0.6) contrast(1.1) brightness(0.95)' },
-  { id: 'bw',     label: 'B&W',    icon: '', css: 'grayscale(1) contrast(1.15)' },
-  { id: 'dreamy', label: 'Dreamy', icon: '', css: 'hue-rotate(240deg) saturate(0.8) brightness(1.1)' },
-];
+// ── State ────────────────────────────────────────────────────
 
-// ── State ────────────────────────────────────
-
+let glEngine       = null;    // PhotoboothGL instance
 let stream         = null;
 let currentLayout  = LAYOUTS[0];
-let currentFilter  = FILTERS[0];
 let timerDelay     = 3;
 let capturedPhotos = [];
 let isShooting     = false;
 
-// ── DOM Refs ─────────────────────────────────
+// ── DOM Refs ─────────────────────────────────────────────────
 
-const video          = document.getElementById('video');
-const placeholder    = document.getElementById('placeholder');
-const cameraBar      = document.getElementById('cameraBar');
-const overlayCanvas  = document.getElementById('overlay-canvas');
-const overlayCtx     = overlayCanvas.getContext('2d');
-const countdownEl    = document.getElementById('countdown');
-const flashEl        = document.getElementById('flash');
-const shotCounterEl  = document.getElementById('shotCounter');
-const btnCapture     = document.getElementById('btnCapture');
-const btnRetake      = document.getElementById('btnRetake');
-const btnStart       = document.getElementById('btnStart');
-const btnClear       = document.getElementById('btnClear');
-const btnDownload    = document.getElementById('btnDownload');
-const finalCanvas    = document.getElementById('final-canvas');
-const collagePreview = document.getElementById('collagePreview');
+const video           = document.getElementById('video');
+const glCanvas        = document.getElementById('glCanvas');
+const placeholder     = document.getElementById('placeholder');
+const cameraBar       = document.getElementById('cameraBar');
+const overlayCanvas   = document.getElementById('overlay-canvas');
+const overlayCtx      = overlayCanvas.getContext('2d');
+const countdownEl     = document.getElementById('countdown');
+const flashEl         = document.getElementById('flash');
+const shotCounterEl   = document.getElementById('shotCounter');
+const btnCapture      = document.getElementById('btnCapture');
+const btnRetake       = document.getElementById('btnRetake');
+const btnStart        = document.getElementById('btnStart');
+const btnClear        = document.getElementById('btnClear');
+const btnDownload     = document.getElementById('btnDownload');
+const finalCanvas     = document.getElementById('final-canvas');
+const collagePreview  = document.getElementById('collagePreview');
+const processingToast = document.getElementById('processingToast');
+const processingMsg   = document.getElementById('processingMsg');
 
-// ── Init ─────────────────────────────────────
+// ── Init ─────────────────────────────────────────────────────
 
 function init() {
   buildLayouts();
@@ -67,14 +60,14 @@ function init() {
   buildFilters();
   renderPreview();
 
-  btnStart.addEventListener('click', startCamera);
-  btnCapture.addEventListener('click', startCapture);
-  btnRetake.addEventListener('click', retakeLast);
-  btnClear.addEventListener('click', clearPhotos);
+  btnStart.addEventListener('click',    startCamera);
+  btnCapture.addEventListener('click',  startCapture);
+  btnRetake.addEventListener('click',   retakeLast);
+  btnClear.addEventListener('click',    clearPhotos);
   btnDownload.addEventListener('click', downloadCollage);
 }
 
-// ── Layout Builder ───────────────────────────
+// ── Layout Builder ───────────────────────────────────────────
 
 function buildLayouts() {
   const grid = document.getElementById('layoutGrid');
@@ -114,7 +107,7 @@ function buildLayouts() {
   });
 }
 
-// ── Timer Builder ────────────────────────────
+// ── Timer Builder ────────────────────────────────────────────
 
 function buildTimers() {
   const container = document.getElementById('timerBtns');
@@ -135,12 +128,13 @@ function buildTimers() {
   });
 }
 
-// ── Filter Builder ───────────────────────────
+// ── Filter Builder ───────────────────────────────────────────
 
 function buildFilters() {
   const container = document.getElementById('filterGrid');
+  container.innerHTML = '';
 
-  FILTERS.forEach((filter, i) => {
+  AESTHETIC_FILTERS.forEach((filter, i) => {
     const btn = document.createElement('button');
     btn.className = 'filter-btn' + (i === 0 ? ' active' : '');
     btn.setAttribute('aria-label', `Filter: ${filter.label}`);
@@ -149,15 +143,14 @@ function buildFilters() {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      currentFilter = filter;
-      applyLiveFilter();
+      if (glEngine) glEngine.setFilter(filter);
     });
 
     container.appendChild(btn);
   });
 }
 
-// ── Camera ───────────────────────────────────
+// ── Camera ───────────────────────────────────────────────────
 
 async function startCamera() {
   try {
@@ -167,19 +160,33 @@ async function startCamera() {
     });
 
     video.srcObject = stream;
-    video.style.display = 'block';
     placeholder.style.display = 'none';
-    cameraBar.style.display = 'flex';
-
-    applyLiveFilter();
 
     video.addEventListener('loadedmetadata', () => {
-      overlayCanvas.width  = video.videoWidth;
-      overlayCanvas.height = video.videoHeight;
+      const w = video.videoWidth  || 1280;
+      const h = video.videoHeight || 960;
+
+      // Size both canvases to match the video
+      glCanvas.width  = w;
+      glCanvas.height = h;
+      overlayCanvas.width  = w;
+      overlayCanvas.height = h;
+
+      // Init WebGL engine
+      glEngine = new PhotoboothGL(glCanvas, video);
+      glEngine.setFilter(AESTHETIC_FILTERS[0]);
+      glEngine.start();
+
+      glCanvas.style.display = 'block';
+      cameraBar.style.display = 'flex';
+
       startParticleAnimation();
+      updateShotCounter();
     });
 
-    updateShotCounter();
+    // Kick off video playback
+    video.play().catch(() => {});
+
   } catch (err) {
     const msg = placeholder.querySelector('p');
     msg.textContent = 'Camera access denied. Allow camera permission and reload.';
@@ -187,11 +194,7 @@ async function startCamera() {
   }
 }
 
-function applyLiveFilter() {
-  video.style.filter = currentFilter.css || 'none';
-}
-
-// ── Particle Animation ───────────────────────
+// ── Particle Animation ───────────────────────────────────────
 
 const PARTICLE_EMOJIS = ['', '', '', '', '', '', '', ''];
 const particles = [];
@@ -222,10 +225,7 @@ function startParticleAnimation() {
       p.y    += p.vy;
       p.life -= p.decay;
 
-      if (p.life <= 0 || p.y < -0.1) {
-        particles.splice(i, 1);
-        continue;
-      }
+      if (p.life <= 0 || p.y < -0.1) { particles.splice(i, 1); continue; }
 
       overlayCtx.globalAlpha = p.life;
       overlayCtx.font = `${p.size}px serif`;
@@ -235,11 +235,10 @@ function startParticleAnimation() {
 
     requestAnimationFrame(draw);
   }
-
   draw();
 }
 
-// ── Capture Flow ─────────────────────────────
+// ── Capture Flow ─────────────────────────────────────────────
 
 async function startCapture() {
   if (isShooting) return;
@@ -275,20 +274,27 @@ function runCountdown() {
 }
 
 function capturePhoto() {
-  const canvas = document.createElement('canvas');
-  canvas.width  = video.videoWidth  || 640;
-  canvas.height = video.videoHeight || 480;
+  // captureFrame() reads directly from the WebGL framebuffer —
+  // the filter is already baked in, no extra processing needed.
+  const dataUrl = glEngine
+    ? glEngine.captureFrame()
+    : fallbackCapture();
 
-  const ctx = canvas.getContext('2d');
-  ctx.filter = currentFilter.css || 'none';
-
-  // Mirror the image to match the live preview
-  ctx.translate(canvas.width, 0);
-  ctx.scale(-1, 1);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-  capturedPhotos.push(canvas.toDataURL('image/jpeg', 0.92));
+  capturedPhotos.push(dataUrl);
   triggerFlash();
+}
+
+// Fallback for browsers without WebGL (draws video to 2D canvas)
+function fallbackCapture() {
+  const w = video.videoWidth  || 1280;
+  const h = video.videoHeight || 720;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.translate(w, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, w, h);
+  return c.toDataURL('image/jpeg', 0.92);
 }
 
 function triggerFlash() {
@@ -309,7 +315,17 @@ function clearPhotos() {
   renderPreview();
 }
 
-// ── UI State ─────────────────────────────────
+// ── Toast ─────────────────────────────────────────────────────
+
+function showToast(msg) {
+  processingMsg.textContent = msg;
+  processingToast.classList.add('visible');
+}
+function hideToast() {
+  processingToast.classList.remove('visible');
+}
+
+// ── UI State ─────────────────────────────────────────────────
 
 function updateShotCounter() {
   const needed = currentLayout.count;
@@ -323,12 +339,12 @@ function updateShotCounter() {
     btnCapture.textContent = '✓ Done! Download below';
     btnCapture.style.background = 'linear-gradient(135deg, #34d399, #059669)';
   } else {
-    btnCapture.textContent = capturedPhotos.length === 0 ? '📸 Start shooting' : '📸 Next photo';
+    btnCapture.textContent = capturedPhotos.length === 0 ? 'Start shooting' : ' Next photo';
     btnCapture.style.background = '';
   }
 }
 
-// ── Collage Preview ──────────────────────────
+// ── Collage Preview ──────────────────────────────────────────
 
 function renderPreview() {
   if (capturedPhotos.length === 0) {
@@ -336,13 +352,7 @@ function renderPreview() {
     return;
   }
 
-  const l = currentLayout;
-
-  if (l.id === 'strip') {
-    renderStrip();
-  } else {
-    renderGrid(l);
-  }
+  currentLayout.id === 'strip' ? renderStrip() : renderGrid(currentLayout);
 }
 
 function renderStrip() {
@@ -389,28 +399,22 @@ function renderGrid(layout) {
   collagePreview.appendChild(grid);
 }
 
-// ── Download ─────────────────────────────────
+// ── Download ─────────────────────────────────────────────────
 
 function downloadCollage() {
-  if (capturedPhotos.length === 0) {
-    alert('Take some photos first!');
-    return;
-  }
+  if (capturedPhotos.length === 0) { alert('Take some photos first!'); return; }
 
-  const l   = currentLayout;
-  const PAD = 10;
+  const l       = currentLayout;
+  const PAD     = 10;
   const LABEL_H = 28;
-
   let totalW, totalH, cellW, cellH;
 
   if (l.id === 'strip') {
-    cellW  = 120;
-    cellH  = 90;
+    cellW = 120; cellH = 90;
     totalW = cellW + PAD * 2;
     totalH = cellH * l.count + PAD * 2 + (l.count - 1) * 4 + LABEL_H;
   } else {
-    cellW  = 200;
-    cellH  = 150;
+    cellW = 200; cellH = 150;
     totalW = cellW * l.cols + PAD * 2 + (l.cols - 1) * 4;
     totalH = cellH * l.rows + PAD * 2 + (l.rows - 1) * 4 + LABEL_H;
   }
@@ -422,44 +426,32 @@ function downloadCollage() {
   ctx.fillStyle = '#1a0a24';
   ctx.fillRect(0, 0, totalW, totalH);
 
-  const photosToRender = capturedPhotos.slice(0, l.count);
-
-  const loadPromises = photosToRender.map((src, i) => {
-    return new Promise(resolve => {
+  const promises = capturedPhotos.slice(0, l.count).map((src, i) =>
+    new Promise(resolve => {
       const img = new Image();
       img.onload = () => {
         let x, y, w, h;
-
         if (l.id === 'strip') {
-          x = PAD;
-          y = PAD + i * (cellH + 4);
-          w = cellW;
-          h = cellH;
+          x = PAD; y = PAD + i * (cellH + 4); w = cellW; h = cellH;
         } else {
-          const col = i % l.cols;
-          const row = Math.floor(i / l.cols);
-          x = PAD + col * (cellW + 4);
-          y = PAD + row * (cellH + 4);
-          w = cellW;
-          h = cellH;
+          const col = i % l.cols, row = Math.floor(i / l.cols);
+          x = PAD + col * (cellW + 4); y = PAD + row * (cellH + 4);
+          w = cellW; h = cellH;
         }
-
         ctx.drawImage(img, x, y, w, h);
         resolve();
       };
       img.src = src;
-    });
-  });
+    })
+  );
 
-  Promise.all(loadPromises).then(() => {
-    // Date stamp
+  Promise.all(promises).then(() => {
     const date = new Date().toLocaleDateString();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ctx.font = '11px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`✦ photobooth · ${date} ✦`, totalW / 2, totalH - 10);
+    ctx.fillText(` ${date} `, totalW / 2, totalH - 10);
 
-    // Trigger download
     const link = document.createElement('a');
     link.download = `photobooth-${Date.now()}.jpg`;
     link.href = finalCanvas.toDataURL('image/jpeg', 0.95);
@@ -467,6 +459,6 @@ function downloadCollage() {
   });
 }
 
-// ── Start ────────────────────────────────────
+// ── Start ─────────────────────────────────────────────────────
 
 init();

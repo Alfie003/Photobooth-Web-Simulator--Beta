@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title> Photobooth Sim </title>
+  <title>Photobooth Web Simulator - Beta</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -11,15 +11,20 @@
 
     <div class="header">
       <h1>Photobooth Web Simulator</h1>
-    <!-- <p>cute photos, no login needed &middot; everything stays on your device</p> -->
     </div>
 
     <div class="main-layout">
 
-      <!-- Camera Section -->
+      <!-- Camera Section --> 
       <div class="camera-section">
         <div class="camera-wrap" id="cameraWrap">
-          <video id="video" autoplay playsinline muted></video>
+          <!--
+            #glCanvas  — WebGL canvas that renders the live filtered preview.
+            #video     — hidden; used only as a WebGL texture source.
+            #overlay-canvas — 2D canvas for emoji particle animation on top.
+          -->
+          <canvas id="glCanvas"></canvas>
+          <video id="video" autoplay playsinline muted style="display:none"></video>
           <canvas id="overlay-canvas"></canvas>
           <div class="countdown-overlay" id="countdown"></div>
           <div class="flash-overlay" id="flash"></div>
@@ -29,7 +34,7 @@
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
               <circle cx="12" cy="13" r="4"/>
             </svg>
-            <p>Click "Start camera" to begin<br />No photos leave your device</p>
+            <p>Click "Start camera" to begin</p>
             <button class="btn-capture" style="max-width:180px" id="btnStart">Start camera</button>
           </div>
         </div>
@@ -37,7 +42,7 @@
         <div class="camera-bar" id="cameraBar">
           <div class="shot-counter" id="shotCounter">0 / 4 photos</div>
           <button class="btn-retake" id="btnRetake" disabled>Retake</button>
-          <button class="btn-capture" id="btnCapture" disabled>Start shooting</button>
+          <button class="btn-capture" id="btnCapture" disabled> Start shooting</button>
         </div>
       </div>
 
@@ -54,7 +59,7 @@
           <div class="timer-btns" id="timerBtns"></div>
         </div>
 
-        <div class="panel">
+        <div class="panel panel-filters">
           <div class="panel-title">Filter</div>
           <div class="filter-scroll" id="filterGrid"></div>
         </div>
@@ -62,10 +67,16 @@
       </div>
     </div>
 
-    <!-- Strip / Collage Preview -->
-    <div class="strip-section" id="stripSection">
+    <!-- Processing toast — shown during heavy WebGL operations -->
+    <div class="processing-toast" id="processingToast">
+      <span class="processing-spinner"></span>
+      <span id="processingMsg">Applying filter…</span>
+    </div>
+
+    <!-- Collage Preview -->
+    <div class="strip-section">
       <div class="strip-header">
-        <span class="strip-title">your photos</span>
+        <span class="strip-title">Your Photos</span>
         <div class="strip-actions">
           <button class="btn-clear" id="btnClear">Clear</button>
           <button class="btn-download" id="btnDownload">
@@ -83,9 +94,12 @@
 
   </div>
 
-  <!-- Hidden canvas for export -->
+  <!-- Hidden 2D canvas for final collage export -->
   <canvas id="final-canvas" style="display:none"></canvas>
 
+  <!-- filters.js defines AESTHETIC_FILTERS and the WebGL engine -->
+  <script src="filters.js"></script>
+  <!-- script.js handles camera, capture flow, UI, collage, download -->
   <script src="script.js"></script>
 </body>
 </html>
