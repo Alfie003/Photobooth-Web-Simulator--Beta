@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Photobooth Web Simulator — Beta</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <a href="landing.html" class="back-link" aria-label="Back to home">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12 19 5 12 12 5"/>
+        </svg>
+      </a>
+      <h1>Photobooth Web Simulator</h1>
+      <span class="header-spacer" aria-hidden="true"></span>
+    </header>
+
+    <!-- ════════════════════════════════════════
+         SECTION 1 — CAMERA FEED
+         ════════════════════════════════════════ -->
+    <section class="app-section camera-feed-section" aria-labelledby="camera-feed-title">
+      <h2 class="section-title" id="camera-feed-title">
+        <span class="section-icon">📷</span> Camera Feed
+      </h2>
+
+      <div class="camera-section">
+        <div class="camera-wrap" id="cameraWrap">
+          <canvas id="glCanvas"></canvas>
+          <video id="video" autoplay playsinline muted style="display:none"></video>
+          <canvas id="overlay-canvas"></canvas>
+          <div class="countdown-overlay" id="countdown"></div>
+          <div class="flash-overlay" id="flash"></div>
+
+          <div class="camera-placeholder" id="placeholder">
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke-width="1.5" aria-hidden="true">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <p>Click "Start camera" to begin</p>
+            <button class="btn-start" id="btnStart">Start camera</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         SECTION 2 — PHOTO GRID OPTION
+         ════════════════════════════════════════ -->
+    <section class="app-section" aria-labelledby="grid-title">
+      <h2 class="section-title" id="grid-title">
+        <span class="section-icon">▦</span> Photo Grid Option
+      </h2>
+      <div class="section-body layout-bar">
+        <div class="layout-icon-row" id="layoutGrid"></div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         SECTION 3 — TIMER
+         ════════════════════════════════════════ -->
+    <section class="app-section" aria-labelledby="timer-title">
+      <h2 class="section-title" id="timer-title">
+        <span class="section-icon">⏱️</span> Timer
+      </h2>
+      <div class="section-body">
+        <div class="timer-btns" id="timerBtns"></div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         SECTION 4 — FILTER
+         ════════════════════════════════════════ -->
+    <section class="app-section" aria-labelledby="filter-title">
+      <h2 class="section-title" id="filter-title">
+        <span class="section-icon">✨</span> Filter
+      </h2>
+      <div class="section-body filter-bar">
+        <div class="filter-chips" id="filterGrid"></div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════
+         SECTION 5 — CAPTURE IMAGE
+         ════════════════════════════════════════ -->
+    <section class="app-section capture-section" aria-labelledby="capture-title">
+      <h2 class="section-title" id="capture-title">
+        <span class="section-icon">📸</span> Capture Image
+      </h2>
+      <div class="section-body capture-body" id="cameraBar">
+        <div class="capture-row-top">
+          <span class="shot-counter" id="shotCounter">0 / 4 photos</span>
+          <button class="btn-retake" id="btnRetake" disabled>Retake</button>
+        </div>
+        <button class="btn-capture" id="btnCapture" disabled>Take photo</button>
+      </div>
+    </section>
+
+    <!-- Collage preview -->
+    <section class="app-section preview-section" aria-labelledby="preview-title">
+      <h2 class="section-title" id="preview-title">
+        <span class="section-icon">🖼️</span> Preview
+      </h2>
+      <div class="section-body">
+        <div class="preview-actions">
+          <button class="btn-retake" id="btnClear">Clear</button>
+          <button class="btn-download" id="btnDownload">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download
+          </button>
+        </div>
+        <div class="preview-canvas" id="collagePreview">
+          <div class="empty-strip">No photos yet</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Photobooth Web Simulator &mdash; Beta</span>
+    </footer>
+
+  </div>
+
+  <!-- Processing toast -->
+  <div class="processing-toast" id="processingToast">
+    <span class="processing-spinner"></span>
+    <span id="processingMsg">Applying filter…</span>
+  </div>
+
+  <!-- Hidden canvases -->
+  <canvas id="final-canvas" style="display:none"></canvas>
+
+  <script src="filters.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

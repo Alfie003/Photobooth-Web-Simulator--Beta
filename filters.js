@@ -465,10 +465,11 @@ class PhotoboothGL {
    * pixels from the WebGL canvas via toDataURL.
    * preserveDrawingBuffer:true means the framebuffer isn't cleared
    * between frames, so this is safe to call at any point.
+   * PNG is used instead of JPEG — lossless, no compression artifacts.
    */
   captureFrame() {
     this._drawFrame();
-    return this.canvas.toDataURL('image/jpeg', 0.93);
+    return this.canvas.toDataURL('image/png');
   }
 }
 

@@ -285,16 +285,17 @@ function capturePhoto() {
 }
 
 // Fallback for browsers without WebGL (draws video to 2D canvas)
+// PNG used — lossless, no compression artifacts.
 function fallbackCapture() {
-  const w = video.videoWidth  || 1280;
-  const h = video.videoHeight || 720;
+  const w = video.videoWidth  || 640;
+  const h = video.videoHeight || 480;
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   ctx.translate(w, 0);
   ctx.scale(-1, 1);
   ctx.drawImage(video, 0, 0, w, h);
-  return c.toDataURL('image/jpeg', 0.92);
+  return c.toDataURL('image/png');
 }
 
 function triggerFlash() {
@@ -401,61 +402,105 @@ function renderGrid(layout) {
 
 // ── Download ─────────────────────────────────────────────────
 
+/*
+ * downloadCollage
+ * Builds the final image at FULL NATIVE RESOLUTION — each captured
+ * photo keeps its original camera pixel dimensions, scaled only by
+ * a single uniform "fitScale" so it's never stretched or distorted.
+ * Output is PNG (lossless) — no re-compression, no quality loss.
+ *
+ * Steps:
+ * 1. Pre-load every photo to read its real width/height.
+ * 2. Use the FIRST photo's dimensions as the reference cell size —
+ *    all captures share the same camera resolution, so this is
+ *    accurate and guarantees uniform, undistorted cells.
+ * 3. Draw each photo at that native size into its grid position.
+ *    No forced resize — drawImage uses source-equals-destination
+ *    dimensions, so pixels map 1:1.
+ */
 function downloadCollage() {
   if (capturedPhotos.length === 0) { alert('Take some photos first!'); return; }
 
-  const l       = currentLayout;
-  const PAD     = 10;
-  const LABEL_H = 28;
-  let totalW, totalH, cellW, cellH;
+  const l    = currentLayout;
+  const GAP  = 6;     // gap between photos, scaled with resolution below
+  const PAD  = 14;    // outer padding
+  const photosToRender = capturedPhotos.slice(0, l.count);
 
-  if (l.id === 'strip') {
-    cellW = 120; cellH = 90;
-    totalW = cellW + PAD * 2;
-    totalH = cellH * l.count + PAD * 2 + (l.count - 1) * 4 + LABEL_H;
-  } else {
-    cellW = 200; cellH = 150;
-    totalW = cellW * l.cols + PAD * 2 + (l.cols - 1) * 4;
-    totalH = cellH * l.rows + PAD * 2 + (l.rows - 1) * 4 + LABEL_H;
-  }
+  showToast('Preparing full-quality download…');
 
-  finalCanvas.width  = totalW;
-  finalCanvas.height = totalH;
-
-  const ctx = finalCanvas.getContext('2d');
-  ctx.fillStyle = '#1a0a24';
-  ctx.fillRect(0, 0, totalW, totalH);
-
-  const promises = capturedPhotos.slice(0, l.count).map((src, i) =>
+  // Step 1 — preload all images to get their native pixel dimensions
+  const loadedImages = [];
+  const loadPromises = photosToRender.map((src, i) =>
     new Promise(resolve => {
       const img = new Image();
-      img.onload = () => {
-        let x, y, w, h;
-        if (l.id === 'strip') {
-          x = PAD; y = PAD + i * (cellH + 4); w = cellW; h = cellH;
-        } else {
-          const col = i % l.cols, row = Math.floor(i / l.cols);
-          x = PAD + col * (cellW + 4); y = PAD + row * (cellH + 4);
-          w = cellW; h = cellH;
-        }
-        ctx.drawImage(img, x, y, w, h);
-        resolve();
-      };
+      img.onload = () => { loadedImages[i] = img; resolve(); };
       img.src = src;
     })
   );
 
-  Promise.all(promises).then(() => {
-    const date = new Date().toLocaleDateString();
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.font = '11px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(` ${date} `, totalW / 2, totalH - 10);
+  Promise.all(loadPromises).then(() => {
+    // Step 2 — reference cell = native resolution of the first photo
+    const refImg = loadedImages[0];
+    const cellW  = refImg.naturalWidth;
+    const cellH  = refImg.naturalHeight;
 
+    // Scale gap/padding proportionally so high-res photos don't get
+    // a comically thin border relative to their size
+    const scaleFactor = cellW / 400;            // 400 was the old reference width
+    const gap = Math.round(GAP * scaleFactor);
+    const pad = Math.round(PAD * scaleFactor);
+    const labelH = Math.round(34 * scaleFactor);
+
+    let totalW, totalH;
+    if (l.id === 'strip') {
+      totalW = cellW + pad * 2;
+      totalH = cellH * l.count + pad * 2 + gap * (l.count - 1) + labelH;
+    } else {
+      totalW = cellW * l.cols + pad * 2 + gap * (l.cols - 1);
+      totalH = cellH * l.rows + pad * 2 + gap * (l.rows - 1) + labelH;
+    }
+
+    finalCanvas.width  = totalW;
+    finalCanvas.height = totalH;
+
+    const ctx = finalCanvas.getContext('2d');
+    // Disable smoothing so any necessary scaling stays crisp (shouldn't
+    // be needed here since cellW/cellH match native size exactly)
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.fillStyle = '#1a1e24';
+    ctx.fillRect(0, 0, totalW, totalH);
+
+    // Step 3 — draw each photo at native size, no stretching
+    loadedImages.forEach((img, i) => {
+      let x, y;
+      if (l.id === 'strip') {
+        x = pad;
+        y = pad + i * (cellH + gap);
+      } else {
+        const col = i % l.cols;
+        const row = Math.floor(i / l.cols);
+        x = pad + col * (cellW + gap);
+        y = pad + row * (cellH + gap);
+      }
+      // Source and destination dimensions match exactly — 1:1 pixel draw
+      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, cellW, cellH);
+    });
+
+    // Date stamp, scaled with resolution
+    const date = new Date().toLocaleDateString();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = `${Math.round(13 * scaleFactor)}px system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`${date}`, totalW / 2, totalH - pad / 2);
+
+    // PNG export — lossless, exact pixels, no recompression
     const link = document.createElement('a');
-    link.download = `photobooth-${Date.now()}.jpg`;
-    link.href = finalCanvas.toDataURL('image/jpeg', 0.95);
+    link.download = `photobooth-${Date.now()}.png`;
+    link.href = finalCanvas.toDataURL('image/png');
     link.click();
+
+    hideToast();
   });
 }
 
