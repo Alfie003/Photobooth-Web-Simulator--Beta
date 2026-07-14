@@ -12,6 +12,7 @@
     <span class="app-blob app-blob-pink"></span>
     <span class="app-blob app-blob-green"></span>
   </div>
+
   <div class="app">
 
     <!-- Header -->
@@ -26,14 +27,11 @@
       <span class="header-spacer" aria-hidden="true"></span>
     </header>
 
-    <!-- ════════════════════════════════════════
-         SECTION 1 — CAMERA FEED
-         ════════════════════════════════════════ -->
+    <!-- SECTION 1 — CAMERA FEED -->
     <section class="app-section camera-feed-section" aria-labelledby="camera-feed-title">
       <h2 class="section-title" id="camera-feed-title">
-        <span class="section-icon"></span> Camera Feed
+        <span class="section-icon">📷</span> Camera Feed
       </h2>
-
       <div class="camera-section">
         <div class="camera-wrap" id="cameraWrap">
           <canvas id="glCanvas"></canvas>
@@ -41,7 +39,6 @@
           <canvas id="overlay-canvas"></canvas>
           <div class="countdown-overlay" id="countdown"></div>
           <div class="flash-overlay" id="flash"></div>
-
           <div class="camera-placeholder" id="placeholder">
             <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke-width="1.5" aria-hidden="true">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -54,104 +51,114 @@
       </div>
     </section>
 
-    <!-- ════════════════════════════════════════
-         SECTION 2 — PHOTO GRID OPTION
-         ════════════════════════════════════════ -->
+    <!-- CONTROLS PANEL — sections 2-5 side by side on desktop -->
     <div class="controls-panel">
-    <section class="app-section" aria-labelledby="grid-title">
-      <h2 class="section-title" id="grid-title">
-        <span class="section-icon"></span> Photo Grid Option
-      </h2>
-      <div class="section-body layout-bar">
-        <div class="layout-icon-row" id="layoutGrid"></div>
-      </div>
-    </section>
 
-    <!-- ════════════════════════════════════════
-         SECTION 3 — TIMER
-         ════════════════════════════════════════ -->
-    <section class="app-section" aria-labelledby="timer-title">
-      <h2 class="section-title" id="timer-title">
-        <span class="section-icon"></span> Timer
-      </h2>
-      <div class="section-body">
-        <div class="timer-btns" id="timerBtns"></div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         SECTION 4 — FILTER
-         ════════════════════════════════════════ -->
-    <section class="app-section" aria-labelledby="filter-title">
-      <h2 class="section-title" id="filter-title">
-        <span class="section-icon"></span> Filter
-      </h2>
-      <div class="section-body filter-bar">
-        <div class="filter-chips" id="filterGrid"></div>
-      </div>
-    </section>
-
-    <!-- ════════════════════════════════════════
-         SECTION 5 — CAPTURE IMAGE
-         ════════════════════════════════════════ -->
-    <section class="app-section capture-section" aria-labelledby="capture-title">
-      <h2 class="section-title" id="capture-title">
-        <span class="section-icon"></span> Capture Image
-      </h2>
-      <div class="section-body capture-body" id="cameraBar">
-        <div class="capture-row-top">
-          <span class="shot-counter" id="shotCounter">0 / 4 photos</span>
-          <button class="btn-retake" id="btnRetake" disabled>Retake</button>
+      <!-- SECTION 2 — PHOTO GRID OPTION -->
+      <section class="app-section" aria-labelledby="grid-title">
+        <h2 class="section-title" id="grid-title">
+          <span class="section-icon">▦</span> Photo Grid
+        </h2>
+        <div class="section-body layout-bar">
+          <div class="layout-icon-row" id="layoutGrid"></div>
         </div>
-        <button class="btn-capture" id="btnCapture" disabled>Take photo</button>
-      </div>
-    </section>
+      </section>
 
-    </div>
+      <!-- SECTION 3 — TIMER -->
+      <section class="app-section" aria-labelledby="timer-title">
+        <h2 class="section-title" id="timer-title">
+          <span class="section-icon">⏱️</span> Timer
+        </h2>
+        <div class="section-body">
+          <div class="timer-btns" id="timerBtns"></div>
+        </div>
+      </section>
 
-    <!-- Collage preview -->
+      <!-- SECTION 4 — FILTER -->
+      <section class="app-section" aria-labelledby="filter-title">
+        <h2 class="section-title" id="filter-title">
+          <span class="section-icon">✨</span> Filter
+        </h2>
+        <div class="section-body filter-bar">
+          <div class="filter-chips" id="filterGrid"></div>
+        </div>
+      </section>
+
+      <!-- SECTION 5 — CAPTURE IMAGE -->
+      <section class="app-section capture-section" aria-labelledby="capture-title">
+        <h2 class="section-title" id="capture-title">
+          <span class="section-icon">📸</span> Capture Image
+        </h2>
+        <div class="section-body capture-body" id="cameraBar">
+          <div class="capture-row-top">
+            <span class="shot-counter" id="shotCounter">0 / 4 photos</span>
+            <button class="btn-retake" id="btnRetake" disabled>Retake</button>
+          </div>
+          <button class="btn-capture" id="btnCapture" disabled>Take photo</button>
+        </div>
+      </section>
+
+    </div><!-- end controls-panel -->
+
+    <!-- PREVIEW — still photos collage -->
     <section class="app-section preview-section" aria-labelledby="preview-title">
       <h2 class="section-title" id="preview-title">
-        <span class="section-icon"></span> Preview
+        <span class="section-icon">🖼️</span> Preview
       </h2>
       <div class="section-body">
         <div class="preview-actions">
           <button class="btn-retake" id="btnClear">Clear</button>
+          <!-- Still: always shown -->
           <button class="btn-download" id="btnDownload">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Still
+            Download Still
           </button>
-          <button class="btn-download btn-download-soft" id="btnDownloadLive">Live</button>
-          <button class="btn-download" id="btnDownloadBoth">Both</button>
+          <!-- Live + Both: only shown for strip layout, toggled by JS -->
+          <button class="btn-download btn-download-soft strip-only" id="btnDownloadLive" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/>
+            </svg>
+            Download Live
+          </button>
+          <button class="btn-download strip-only" id="btnDownloadBoth" style="display:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download Both
+          </button>
         </div>
         <div class="preview-canvas" id="collagePreview">
-          <div class="empty-strip">No photos yet</div>
+          <div class="empty-strip">No photos yet — choose a layout and start shooting!</div>
         </div>
       </div>
     </section>
 
-    <section class="app-section live-section" aria-labelledby="live-title">
+    <!-- LIVE MOMENTS — only for strip layout, hidden otherwise -->
+    <section class="app-section live-section strip-only-section" id="liveMomentsSection" aria-labelledby="live-title" style="display:none">
       <h2 class="section-title" id="live-title">
-        <span class="section-icon">&#9679;</span> Live moments
+        <span class="section-icon">&#9679;</span> Live Moments
+        <span class="live-badge">Strip only</span>
       </h2>
       <div class="section-body">
         <div class="live-preview-heading">
-          <span><i class="live-dot" aria-hidden="true"></i> Motion captured with each photo</span>
-          <small>2.5 seconds</small>
+          <span><i class="live-dot" aria-hidden="true"></i> 2.5 sec motion clip per photo</span>
+          <small>Auto-recorded · WebM</small>
         </div>
         <div class="live-preview-list" id="livePreview">
-          <p class="live-empty">Your live moments will appear here.</p>
+          <p class="live-empty">Your live moments will appear here after taking strip photos.</p>
         </div>
       </div>
     </section>
 
     <!-- Footer -->
     <footer class="footer">
-      <span>Photobooth Web Simulator &mdash; Beta</span>
+      <span>Photoooth Web Simulator &mdash; Beta</span>
     </footer>
 
   </div>
@@ -159,10 +166,10 @@
   <!-- Processing toast -->
   <div class="processing-toast" id="processingToast">
     <span class="processing-spinner"></span>
-    <span id="processingMsg">Applying filter…</span>
+    <span id="processingMsg">Preparing download…</span>
   </div>
 
-  <!-- Hidden canvases -->
+  <!-- Hidden canvas for export -->
   <canvas id="final-canvas" style="display:none"></canvas>
 
   <script src="filters.js"></script>

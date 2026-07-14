@@ -1,12 +1,18 @@
 /* ============================================================
    script.js  —  Camera, UI, Capture, Collage, Download
    Depends on: filters.js (PhotoboothGL, AESTHETIC_FILTERS)
+
+   Key behaviours:
+   - Strip layout only: live moments recorded + section shown
+   - Strip preview: V-mirror (alternating horizontal flip per photo)
+   - Download Still: always available
+   - Download Live / Both: only shown when layout === strip
+   - PNG export at native camera resolution — zero re-compression
    ============================================================ */
 
 'use strict';
 
-// ── Config ───────────────────────────────────────────────────
-
+// ── Layouts ──────────────────────────────────────────────────
 const LAYOUTS = [
   { id: 'strip', label: 'Strip', cols: 1, rows: 4, count: 4 },
   { id: '2x2',   label: '2×2',  cols: 2, rows: 2, count: 4 },
@@ -21,60 +27,71 @@ const TIMERS = [
   { value: 10, label: '10s' },
 ];
 
-// ── State ────────────────────────────────────────────────────
-
-let glEngine       = null;    // PhotoboothGL instance
+// ── State ─────────────────────────────────────────────────────
+let glEngine       = null;
 let stream         = null;
-let currentLayout  = LAYOUTS[0];
+let currentLayout  = LAYOUTS[0];   // default: strip
 let timerDelay     = 3;
 let capturedPhotos = [];
 let liveClips      = [];
 let isShooting     = false;
 
-// ── DOM Refs ─────────────────────────────────────────────────
+// ── DOM ───────────────────────────────────────────────────────
+const video             = document.getElementById('video');
+const glCanvas          = document.getElementById('glCanvas');
+const placeholder       = document.getElementById('placeholder');
+const cameraBar         = document.getElementById('cameraBar');
+const overlayCanvas     = document.getElementById('overlay-canvas');
+const overlayCtx        = overlayCanvas.getContext('2d');
+const countdownEl       = document.getElementById('countdown');
+const flashEl           = document.getElementById('flash');
+const shotCounterEl     = document.getElementById('shotCounter');
+const btnCapture        = document.getElementById('btnCapture');
+const btnRetake         = document.getElementById('btnRetake');
+const btnStart          = document.getElementById('btnStart');
+const btnClear          = document.getElementById('btnClear');
+const btnDownload       = document.getElementById('btnDownload');
+const btnDownloadLive   = document.getElementById('btnDownloadLive');
+const btnDownloadBoth   = document.getElementById('btnDownloadBoth');
+const finalCanvas       = document.getElementById('final-canvas');
+const collagePreview    = document.getElementById('collagePreview');
+const livePreview       = document.getElementById('livePreview');
+const processingToast   = document.getElementById('processingToast');
+const processingMsg     = document.getElementById('processingMsg');
+const liveMomentsSection = document.getElementById('liveMomentsSection');
 
-const video           = document.getElementById('video');
-const glCanvas        = document.getElementById('glCanvas');
-const placeholder     = document.getElementById('placeholder');
-const cameraBar       = document.getElementById('cameraBar');
-const overlayCanvas   = document.getElementById('overlay-canvas');
-const overlayCtx      = overlayCanvas.getContext('2d');
-const countdownEl     = document.getElementById('countdown');
-const flashEl         = document.getElementById('flash');
-const shotCounterEl   = document.getElementById('shotCounter');
-const btnCapture      = document.getElementById('btnCapture');
-const btnRetake       = document.getElementById('btnRetake');
-const btnStart        = document.getElementById('btnStart');
-const btnClear        = document.getElementById('btnClear');
-const btnDownload     = document.getElementById('btnDownload');
-const btnDownloadLive = document.getElementById('btnDownloadLive');
-const btnDownloadBoth = document.getElementById('btnDownloadBoth');
-const finalCanvas     = document.getElementById('final-canvas');
-const collagePreview  = document.getElementById('collagePreview');
-const livePreview     = document.getElementById('livePreview');
-const processingToast = document.getElementById('processingToast');
-const processingMsg   = document.getElementById('processingMsg');
-
-// ── Init ─────────────────────────────────────────────────────
-
+// ── Init ──────────────────────────────────────────────────────
 function init() {
   buildLayouts();
   buildTimers();
   buildFilters();
   renderPreview();
   renderLivePreview();
+  syncStripOnlyUI();
 
-  btnStart.addEventListener('click',    startCamera);
-  btnCapture.addEventListener('click',  startCapture);
-  btnRetake.addEventListener('click',   retakeLast);
-  btnClear.addEventListener('click',    clearPhotos);
-  btnDownload.addEventListener('click', downloadCollage);
-  btnDownloadLive.addEventListener('click', downloadAllLiveClips);
-  btnDownloadBoth.addEventListener('click', downloadBoth);
+  btnStart.addEventListener('click',          startCamera);
+  btnCapture.addEventListener('click',        startCapture);
+  btnRetake.addEventListener('click',         retakeLast);
+  btnClear.addEventListener('click',          clearPhotos);
+  btnDownload.addEventListener('click',       downloadCollage);
+  btnDownloadLive.addEventListener('click',   downloadAllLiveClips);
+  btnDownloadBoth.addEventListener('click',   downloadBoth);
 }
 
-// ── Layout Builder ───────────────────────────────────────────
+// ── Sync strip-only elements ──────────────────────────────────
+/*
+ * Live Moments section, Live and Both download buttons are only
+ * meaningful when the strip layout is active. This function
+ * shows/hides them whenever the layout changes.
+ */
+function syncStripOnlyUI() {
+  const isStrip = currentLayout.id === 'strip';
+  liveMomentsSection.style.display  = isStrip ? '' : 'none';
+  btnDownloadLive.style.display     = isStrip ? '' : 'none';
+  btnDownloadBoth.style.display     = isStrip ? '' : 'none';
+}
 
+// ── Layout Builder ────────────────────────────────────────────
 function buildLayouts() {
   const grid = document.getElementById('layoutGrid');
 
@@ -88,13 +105,11 @@ function buildLayouts() {
     dotsDiv.className = 'layout-dots';
     dotsDiv.style.gridTemplateColumns = `repeat(${layout.cols}, 1fr)`;
     dotsDiv.style.gridTemplateRows    = `repeat(${layout.rows}, 1fr)`;
-
     for (let x = 0; x < layout.cols * layout.rows; x++) {
       const dot = document.createElement('div');
       dot.className = 'dot';
       dotsDiv.appendChild(dot);
     }
-
     const label = document.createElement('span');
     label.textContent = layout.label;
 
@@ -105,6 +120,7 @@ function buildLayouts() {
       document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentLayout = layout;
+      syncStripOnlyUI();
       updateShotCounter();
       renderPreview();
     });
@@ -113,51 +129,42 @@ function buildLayouts() {
   });
 }
 
-// ── Timer Builder ────────────────────────────────────────────
-
+// ── Timer Builder ─────────────────────────────────────────────
 function buildTimers() {
   const container = document.getElementById('timerBtns');
-
   TIMERS.forEach((timer, i) => {
     const btn = document.createElement('button');
     btn.className = 'timer-btn' + (i === 0 ? ' active' : '');
     btn.textContent = timer.label;
     btn.setAttribute('aria-label', `Timer: ${timer.label}`);
-
     btn.addEventListener('click', () => {
       document.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       timerDelay = timer.value;
     });
-
     container.appendChild(btn);
   });
 }
 
-// ── Filter Builder ───────────────────────────────────────────
-
+// ── Filter Builder ────────────────────────────────────────────
 function buildFilters() {
   const container = document.getElementById('filterGrid');
   container.innerHTML = '';
-
   AESTHETIC_FILTERS.forEach((filter, i) => {
     const btn = document.createElement('button');
     btn.className = 'filter-btn' + (i === 0 ? ' active' : '');
     btn.setAttribute('aria-label', `Filter: ${filter.label}`);
     btn.innerHTML = `<span class="filter-icon">${filter.icon}</span>${filter.label}`;
-
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       if (glEngine) glEngine.setFilter(filter);
     });
-
     container.appendChild(btn);
   });
 }
 
-// ── Camera ───────────────────────────────────────────────────
-
+// ── Camera ────────────────────────────────────────────────────
 async function startCamera() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -172,13 +179,11 @@ async function startCamera() {
       const w = video.videoWidth  || 1280;
       const h = video.videoHeight || 960;
 
-      // Size both canvases to match the video
-      glCanvas.width  = w;
-      glCanvas.height = h;
-      overlayCanvas.width  = w;
-      overlayCanvas.height = h;
+      glCanvas.width        = w;
+      glCanvas.height       = h;
+      overlayCanvas.width   = w;
+      overlayCanvas.height  = h;
 
-      // Init WebGL engine
       glEngine = new PhotoboothGL(glCanvas, video);
       glEngine.setFilter(AESTHETIC_FILTERS[0]);
       glEngine.start();
@@ -190,19 +195,17 @@ async function startCamera() {
       updateShotCounter();
     });
 
-    // Kick off video playback
     video.play().catch(() => {});
 
   } catch (err) {
     const msg = placeholder.querySelector('p');
-    msg.textContent = 'Camera access denied. Allow camera permission and reload.';
+    if (msg) msg.textContent = 'Camera access denied. Allow camera permission and reload.';
     console.error('Camera error:', err);
   }
 }
 
-// ── Particle Animation ───────────────────────────────────────
-
-const PARTICLE_EMOJIS = ['', '', '', '', '', '', '', ''];
+// ── Particle Animation ────────────────────────────────────────
+const PARTICLE_EMOJIS = ['✨','🌸','💕','⭐','🌟','💫','🌺','💖'];
 const particles = [];
 
 function spawnParticle() {
@@ -222,30 +225,22 @@ function spawnParticle() {
 function startParticleAnimation() {
   function draw() {
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
     if (Math.random() < 0.08) spawnParticle();
-
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x    += p.vx;
-      p.y    += p.vy;
-      p.life -= p.decay;
-
+      p.x += p.vx; p.y += p.vy; p.life -= p.decay;
       if (p.life <= 0 || p.y < -0.1) { particles.splice(i, 1); continue; }
-
       overlayCtx.globalAlpha = p.life;
       overlayCtx.font = `${p.size}px serif`;
       overlayCtx.fillText(p.emoji, p.x * overlayCanvas.width, p.y * overlayCanvas.height);
       overlayCtx.globalAlpha = 1;
     }
-
     requestAnimationFrame(draw);
   }
   draw();
 }
 
-// ── Capture Flow ─────────────────────────────────────────────
-
+// ── Capture Flow ──────────────────────────────────────────────
 async function startCapture() {
   if (isShooting) return;
   isShooting = true;
@@ -256,13 +251,14 @@ async function startCapture() {
   capturePhoto();
   renderPreview();
 
-  if (canCaptureLiveMoment()) {
-    showToast('Saving your 2.5 second live moment…');
+  // Live moments: only record for strip layout
+  if (currentLayout.id === 'strip' && canCaptureLiveMoment()) {
+    showToast('Saving 2.5 sec live moment…');
     try {
       liveClips.push(await recordLiveMoment());
       renderLivePreview();
-    } catch (error) {
-      console.error('Live moment error:', error);
+    } catch (err) {
+      console.error('Live moment error:', err);
     } finally {
       hideToast();
     }
@@ -278,34 +274,28 @@ function canCaptureLiveMoment() {
 }
 
 function getSupportedVideoType() {
-  const types = [
-    'video/webm;codecs=vp9',
-    'video/webm;codecs=vp8',
-    'video/webm',
-  ];
-  return types.find(type => MediaRecorder.isTypeSupported(type)) || '';
+  const types = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || '';
 }
 
 function recordLiveMoment() {
-  const source = glEngine && glEngine.gl && glCanvas.captureStream ? glCanvas : video;
+  const source = (glEngine && glEngine.gl && glCanvas.captureStream) ? glCanvas : video;
   const captureStream = source.captureStream(30);
   const mimeType = getSupportedVideoType();
   const pixels = (source.width || video.videoWidth || 1280) * (source.height || video.videoHeight || 960);
   const recorder = new MediaRecorder(captureStream, {
     ...(mimeType ? { mimeType } : {}),
-    videoBitsPerSecond: Math.min(14000000, Math.max(4000000, pixels * 5)),
+    videoBitsPerSecond: Math.min(14_000_000, Math.max(4_000_000, pixels * 5)),
   });
   const chunks = [];
 
   return new Promise((resolve, reject) => {
-    recorder.ondataavailable = event => {
-      if (event.data.size) chunks.push(event.data);
-    };
-    recorder.onerror = () => reject(recorder.error || new Error('Unable to record live moment'));
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onerror = () => reject(recorder.error || new Error('Recording failed'));
     recorder.onstop = () => {
-      captureStream.getTracks().forEach(track => track.stop());
+      captureStream.getTracks().forEach(t => t.stop());
       const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
-      if (!blob.size) { reject(new Error('Live moment was empty')); return; }
+      if (!blob.size) { reject(new Error('Empty live moment')); return; }
       resolve({ blob, url: URL.createObjectURL(blob), type: blob.type });
     };
     recorder.start(250);
@@ -318,35 +308,24 @@ function runCountdown() {
     let n = timerDelay;
     countdownEl.classList.add('visible');
     countdownEl.textContent = n;
-
-    const interval = setInterval(() => {
+    const iv = setInterval(() => {
       n--;
-      if (n <= 0) {
-        clearInterval(interval);
-        countdownEl.classList.remove('visible');
-        resolve();
-      } else {
-        countdownEl.textContent = n;
-      }
+      if (n <= 0) { clearInterval(iv); countdownEl.classList.remove('visible'); resolve(); }
+      else countdownEl.textContent = n;
     }, 1000);
   });
 }
 
 function capturePhoto() {
-  // captureFrame() reads directly from the WebGL framebuffer —
-  // the filter is already baked in, no extra processing needed.
-  const dataUrl = glEngine && glEngine.gl
+  const dataUrl = (glEngine && glEngine.gl)
     ? glEngine.captureFrame()
     : fallbackCapture();
-
   capturedPhotos.push(dataUrl);
   triggerFlash();
 }
 
-// Fallback for browsers without WebGL (draws video to 2D canvas)
-// PNG used — lossless, no compression artifacts.
 function fallbackCapture() {
-  const w = video.videoWidth  || 640;
+  const w = video.videoWidth || 640;
   const h = video.videoHeight || 480;
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -365,21 +344,26 @@ function triggerFlash() {
 function retakeLast() {
   if (capturedPhotos.length === 0) return;
   capturedPhotos.pop();
+  // Also remove the matching live clip if strip
+  if (currentLayout.id === 'strip' && liveClips.length > capturedPhotos.length) {
+    const removed = liveClips.pop();
+    if (removed) URL.revokeObjectURL(removed.url);
+    renderLivePreview();
+  }
   updateShotCounter();
   renderPreview();
 }
 
 function clearPhotos() {
   capturedPhotos = [];
-  liveClips.forEach(clip => URL.revokeObjectURL(clip.url));
+  liveClips.forEach(c => URL.revokeObjectURL(c.url));
   liveClips = [];
   updateShotCounter();
   renderPreview();
   renderLivePreview();
 }
 
-// ── Toast ─────────────────────────────────────────────────────
-
+// ── Toast ──────────────────────────────────────────────────────
 function showToast(msg) {
   processingMsg.textContent = msg;
   processingToast.classList.add('visible');
@@ -388,8 +372,7 @@ function hideToast() {
   processingToast.classList.remove('visible');
 }
 
-// ── UI State ─────────────────────────────────────────────────
-
+// ── UI State ───────────────────────────────────────────────────
 function updateShotCounter() {
   const needed = currentLayout.count;
   shotCounterEl.textContent = `${capturedPhotos.length} / ${needed} photos`;
@@ -402,82 +385,34 @@ function updateShotCounter() {
     btnCapture.textContent = '✓ Done! Download below';
     btnCapture.style.background = 'linear-gradient(135deg, #34d399, #059669)';
   } else {
-    btnCapture.textContent = capturedPhotos.length === 0 ? 'Start shooting' : ' Next photo';
+    btnCapture.textContent = capturedPhotos.length === 0 ? 'Start shooting' : 'Next photo';
     btnCapture.style.background = '';
   }
 }
 
-// ── Collage Preview ──────────────────────────────────────────
-
+// ── Collage Preview ────────────────────────────────────────────
 function renderPreview() {
   if (capturedPhotos.length === 0) {
-    collagePreview.innerHTML = '<div class="empty-strip">No photos yet — hit "Start shooting" to begin!</div>';
+    collagePreview.innerHTML = '<div class="empty-strip">No photos yet — choose a layout and start shooting!</div>';
     return;
   }
-
   currentLayout.id === 'strip' ? renderStrip() : renderGrid(currentLayout);
 }
 
-function renderLivePreview() {
-  livePreview.innerHTML = '';
-  if (!liveClips.length) {
-    livePreview.innerHTML = '<p class="live-empty">Your live moments will appear here.</p>';
-    return;
-  }
-
-  liveClips.forEach((clip, index) => {
-    const card = document.createElement('article');
-    card.className = 'live-clip-card';
-
-    const media = document.createElement('video');
-    media.src = clip.url;
-    media.muted = true;
-    media.loop = true;
-    media.autoplay = true;
-    media.playsInline = true;
-    media.setAttribute('aria-label', `Live moment ${index + 1}`);
-
-    const download = document.createElement('button');
-    download.className = 'btn-live-download';
-    download.type = 'button';
-    download.textContent = 'Download live';
-    download.addEventListener('click', () => downloadLiveClip(clip, index));
-
-    card.append(media, download);
-    livePreview.appendChild(card);
-  });
-}
-
-function downloadLiveClip(clip, index) {
-  const link = document.createElement('a');
-  link.href = clip.url;
-  link.download = `photobooth-live-${index + 1}-${Date.now()}.webm`;
-  link.click();
-}
-
-function downloadAllLiveClips() {
-  if (!liveClips.length) { alert('Take a photo first to create a live moment.'); return; }
-  liveClips.forEach((clip, index) => {
-    setTimeout(() => downloadLiveClip(clip, index), index * 180);
-  });
-}
-
-function downloadBoth() {
-  if (!capturedPhotos.length && !liveClips.length) {
-    alert('Take a photo first!');
-    return;
-  }
-  if (capturedPhotos.length) downloadCollage();
-  if (liveClips.length) downloadAllLiveClips();
-}
-
+/*
+ * renderStrip — V-mirror effect
+ * Photos at index 0, 2, 4… (1st, 3rd…) are displayed normally.
+ * Photos at index 1, 3, 5… (2nd, 4th…) are horizontally flipped
+ * via the CSS class .mirror-flip → transform: scaleX(-1).
+ * This creates the V / mirror-image strip look.
+ */
 function renderStrip() {
   const strip = document.createElement('div');
   strip.className = 'photo-strip';
 
   capturedPhotos.forEach((src, i) => {
     const img = document.createElement('img');
-    img.className = 'strip-photo';
+    img.className = 'strip-photo' + (i % 2 === 1 ? ' mirror-flip' : '');
     img.src = src;
     img.alt = `Photo ${i + 1}`;
     strip.appendChild(img);
@@ -488,7 +423,7 @@ function renderStrip() {
 }
 
 function renderGrid(layout) {
-  const cellSize   = Math.floor(400 / layout.cols);
+  const cellSize   = Math.floor(360 / layout.cols);
   const cellHeight = Math.floor(cellSize * 0.75);
 
   const grid = document.createElement('div');
@@ -515,56 +450,71 @@ function renderGrid(layout) {
   collagePreview.appendChild(grid);
 }
 
-// ── Download ─────────────────────────────────────────────────
+// ── Live Preview ───────────────────────────────────────────────
+function renderLivePreview() {
+  livePreview.innerHTML = '';
+  if (!liveClips.length) {
+    livePreview.innerHTML = '<p class="live-empty">Your live moments will appear here after taking strip photos.</p>';
+    return;
+  }
+  liveClips.forEach((clip, index) => {
+    const card  = document.createElement('article');
+    card.className = 'live-clip-card';
+
+    const media = document.createElement('video');
+    media.src     = clip.url;
+    media.muted   = true;
+    media.loop    = true;
+    media.autoplay= true;
+    media.playsInline = true;
+    media.setAttribute('aria-label', `Live moment ${index + 1}`);
+
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'btn-live-download';
+    dlBtn.type = 'button';
+    dlBtn.textContent = 'Save';
+    dlBtn.addEventListener('click', () => downloadLiveClip(clip, index));
+
+    card.append(media, dlBtn);
+    livePreview.appendChild(card);
+  });
+}
+
+// ── Download ───────────────────────────────────────────────────
 
 /*
- * downloadCollage
- * Builds the final image at FULL NATIVE RESOLUTION — each captured
- * photo keeps its original camera pixel dimensions, scaled only by
- * a single uniform "fitScale" so it's never stretched or distorted.
- * Output is PNG (lossless) — no re-compression, no quality loss.
- *
- * Steps:
- * 1. Pre-load every photo to read its real width/height.
- * 2. Use the FIRST photo's dimensions as the reference cell size —
- *    all captures share the same camera resolution, so this is
- *    accurate and guarantees uniform, undistorted cells.
- * 3. Draw each photo at that native size into its grid position.
- *    No forced resize — drawImage uses source-equals-destination
- *    dimensions, so pixels map 1:1.
+ * downloadCollage — "Download Still"
+ * Builds the final collage at FULL NATIVE camera resolution.
+ * For the strip layout, odd-indexed photos (2nd, 4th) are drawn
+ * with a horizontal flip on the export canvas (matching the preview).
+ * Output: lossless PNG via Blob URL — zero re-compression.
  */
 function downloadCollage() {
   if (capturedPhotos.length === 0) { alert('Take some photos first!'); return; }
 
-  const l    = currentLayout;
-  const GAP  = 6;     // gap between photos, scaled with resolution below
-  const PAD  = 14;    // outer padding
+  const l   = currentLayout;
+  const GAP = 6;
+  const PAD = 14;
   const photosToRender = capturedPhotos.slice(0, l.count);
 
-  showToast('Preparing full-quality download…');
+  showToast('Preparing full-quality still…');
 
-  // Step 1 — preload all images to get their native pixel dimensions
   const loadedImages = [];
-  const loadPromises = photosToRender.map((src, i) =>
-    new Promise(resolve => {
+  Promise.all(
+    photosToRender.map((src, i) => new Promise(res => {
       const img = new Image();
-      img.onload = () => { loadedImages[i] = img; resolve(); };
+      img.onload = () => { loadedImages[i] = img; res(); };
       img.src = src;
-    })
-  );
-
-  Promise.all(loadPromises).then(() => {
-    // Step 2 — reference cell = native resolution of the first photo
+    }))
+  ).then(() => {
     const refImg = loadedImages[0];
     const cellW  = refImg.naturalWidth;
     const cellH  = refImg.naturalHeight;
 
-    // Scale gap/padding proportionally so high-res photos don't get
-    // a comically thin border relative to their size
-    const scaleFactor = cellW / 400;            // 400 was the old reference width
-    const gap = Math.round(GAP * scaleFactor);
-    const pad = Math.round(PAD * scaleFactor);
-    const labelH = Math.round(34 * scaleFactor);
+    const scale   = cellW / 400;
+    const gap     = Math.round(GAP * scale);
+    const pad     = Math.round(PAD * scale);
+    const labelH  = Math.round(28 * scale);
 
     let totalW, totalH;
     if (l.id === 'strip') {
@@ -577,16 +527,13 @@ function downloadCollage() {
 
     finalCanvas.width  = totalW;
     finalCanvas.height = totalH;
-
     const ctx = finalCanvas.getContext('2d');
-    // Disable smoothing so any necessary scaling stays crisp (shouldn't
-    // be needed here since cellW/cellH match native size exactly)
     ctx.imageSmoothingEnabled = false;
 
+    // Dark background
     ctx.fillStyle = '#1a1e24';
     ctx.fillRect(0, 0, totalW, totalH);
 
-    // Step 3 — draw each photo at native size, no stretching
     loadedImages.forEach((img, i) => {
       let x, y;
       if (l.id === 'strip') {
@@ -598,33 +545,58 @@ function downloadCollage() {
         x = pad + col * (cellW + gap);
         y = pad + row * (cellH + gap);
       }
-      // Source and destination dimensions match exactly — 1:1 pixel draw
-      ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, cellW, cellH);
+
+      // V-mirror: flip even-indexed (0-based) photos horizontally on export canvas
+      if (l.id === 'strip' && i % 2 === 1) {
+        ctx.save();
+        ctx.translate(x + cellW, y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, 0, 0, cellW, cellH);
+        ctx.restore();
+      } else {
+        ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, x, y, cellW, cellH);
+      }
     });
 
-    // Date stamp, scaled with resolution
+    // Date stamp
     const date = new Date().toLocaleDateString();
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = `${Math.round(13 * scaleFactor)}px system-ui, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = `${Math.round(12 * scale)}px system-ui, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillText(`${date}`, totalW / 2, totalH - pad / 2);
+    ctx.fillText(date, totalW / 2, totalH - Math.round(8 * scale));
 
-    // PNG export — lossless, exact pixels, no recompression
-    // Blob export avoids holding another large base64 copy in memory. PNG
-    // remains lossless and the canvas keeps every native camera pixel.
+    // Blob export — lossless PNG, avoids base64 memory overhead
     finalCanvas.toBlob(blob => {
       if (!blob) { hideToast(); return; }
-      const url = URL.createObjectURL(blob);
+      const url  = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.download = `photobooth-${Date.now()}.png`;
+      link.download = `photobooth-still-${Date.now()}.png`;
       link.href = url;
       link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
       hideToast();
     }, 'image/png');
   });
 }
 
-// ── Start ─────────────────────────────────────────────────────
+function downloadLiveClip(clip, index) {
+  const ext  = clip.type.includes('mp4') ? 'mp4' : 'webm';
+  const link = document.createElement('a');
+  link.href  = clip.url;
+  link.download = `photobooth-live-${index + 1}-${Date.now()}.${ext}`;
+  link.click();
+}
 
+function downloadAllLiveClips() {
+  if (!liveClips.length) { alert('Take some strip photos first to generate live moments.'); return; }
+  liveClips.forEach((clip, i) => setTimeout(() => downloadLiveClip(clip, i), i * 200));
+}
+
+function downloadBoth() {
+  if (!capturedPhotos.length && !liveClips.length) { alert('Take some photos first!'); return; }
+  if (capturedPhotos.length) downloadCollage();
+  if (liveClips.length)      setTimeout(downloadAllLiveClips, 300);
+}
+
+// ── Start ──────────────────────────────────────────────────────
 init();
