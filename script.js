@@ -11,8 +11,7 @@ const LAYOUTS = [
   { id: 'strip', label: 'Strip', cols: 1, rows: 4, count: 4 },
   { id: '2x2',   label: '2×2',  cols: 2, rows: 2, count: 4 },
   { id: '2x3',   label: '2×3',  cols: 2, rows: 3, count: 6 },
-  { id: '3x3',   label: '3×3',  cols: 3, rows: 3, count: 9 },
-  { id: '4ph',   label: '4 ph', cols: 2, rows: 2, count: 4 },
+  { id: '2x4',   label: '2×4',  cols: 2, rows: 4, count: 8 },
   { id: '6ph',   label: '6 ph', cols: 3, rows: 2, count: 6 },
 ];
 
@@ -29,6 +28,7 @@ let stream         = null;
 let currentLayout  = LAYOUTS[0];
 let timerDelay     = 3;
 let capturedPhotos = [];
+let liveClips      = [];
 let isShooting     = false;
 
 // ── DOM Refs ─────────────────────────────────────────────────
@@ -47,8 +47,11 @@ const btnRetake       = document.getElementById('btnRetake');
 const btnStart        = document.getElementById('btnStart');
 const btnClear        = document.getElementById('btnClear');
 const btnDownload     = document.getElementById('btnDownload');
+const btnDownloadLive = document.getElementById('btnDownloadLive');
+const btnDownloadBoth = document.getElementById('btnDownloadBoth');
 const finalCanvas     = document.getElementById('final-canvas');
 const collagePreview  = document.getElementById('collagePreview');
+const livePreview     = document.getElementById('livePreview');
 const processingToast = document.getElementById('processingToast');
 const processingMsg   = document.getElementById('processingMsg');
 
@@ -59,12 +62,15 @@ function init() {
   buildTimers();
   buildFilters();
   renderPreview();
+  renderLivePreview();
 
   btnStart.addEventListener('click',    startCamera);
   btnCapture.addEventListener('click',  startCapture);
   btnRetake.addEventListener('click',   retakeLast);
   btnClear.addEventListener('click',    clearPhotos);
   btnDownload.addEventListener('click', downloadCollage);
+  btnDownloadLive.addEventListener('click', downloadAllLiveClips);
+  btnDownloadBoth.addEventListener('click', downloadBoth);
 }
 
 // ── Layout Builder ───────────────────────────────────────────
@@ -248,10 +254,63 @@ async function startCapture() {
 
   await runCountdown();
   capturePhoto();
+  renderPreview();
+
+  if (canCaptureLiveMoment()) {
+    showToast('Saving your 2.5 second live moment…');
+    try {
+      liveClips.push(await recordLiveMoment());
+      renderLivePreview();
+    } catch (error) {
+      console.error('Live moment error:', error);
+    } finally {
+      hideToast();
+    }
+  }
 
   isShooting = false;
   updateShotCounter();
-  renderPreview();
+}
+
+function canCaptureLiveMoment() {
+  return typeof MediaRecorder !== 'undefined' &&
+    Boolean((glEngine && glEngine.gl && glCanvas.captureStream) || video.captureStream);
+}
+
+function getSupportedVideoType() {
+  const types = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm',
+  ];
+  return types.find(type => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function recordLiveMoment() {
+  const source = glEngine && glEngine.gl && glCanvas.captureStream ? glCanvas : video;
+  const captureStream = source.captureStream(30);
+  const mimeType = getSupportedVideoType();
+  const pixels = (source.width || video.videoWidth || 1280) * (source.height || video.videoHeight || 960);
+  const recorder = new MediaRecorder(captureStream, {
+    ...(mimeType ? { mimeType } : {}),
+    videoBitsPerSecond: Math.min(14000000, Math.max(4000000, pixels * 5)),
+  });
+  const chunks = [];
+
+  return new Promise((resolve, reject) => {
+    recorder.ondataavailable = event => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    recorder.onerror = () => reject(recorder.error || new Error('Unable to record live moment'));
+    recorder.onstop = () => {
+      captureStream.getTracks().forEach(track => track.stop());
+      const blob = new Blob(chunks, { type: recorder.mimeType || 'video/webm' });
+      if (!blob.size) { reject(new Error('Live moment was empty')); return; }
+      resolve({ blob, url: URL.createObjectURL(blob), type: blob.type });
+    };
+    recorder.start(250);
+    setTimeout(() => recorder.state !== 'inactive' && recorder.stop(), 2500);
+  });
 }
 
 function runCountdown() {
@@ -276,7 +335,7 @@ function runCountdown() {
 function capturePhoto() {
   // captureFrame() reads directly from the WebGL framebuffer —
   // the filter is already baked in, no extra processing needed.
-  const dataUrl = glEngine
+  const dataUrl = glEngine && glEngine.gl
     ? glEngine.captureFrame()
     : fallbackCapture();
 
@@ -312,8 +371,11 @@ function retakeLast() {
 
 function clearPhotos() {
   capturedPhotos = [];
+  liveClips.forEach(clip => URL.revokeObjectURL(clip.url));
+  liveClips = [];
   updateShotCounter();
   renderPreview();
+  renderLivePreview();
 }
 
 // ── Toast ─────────────────────────────────────────────────────
@@ -354,6 +416,59 @@ function renderPreview() {
   }
 
   currentLayout.id === 'strip' ? renderStrip() : renderGrid(currentLayout);
+}
+
+function renderLivePreview() {
+  livePreview.innerHTML = '';
+  if (!liveClips.length) {
+    livePreview.innerHTML = '<p class="live-empty">Your live moments will appear here.</p>';
+    return;
+  }
+
+  liveClips.forEach((clip, index) => {
+    const card = document.createElement('article');
+    card.className = 'live-clip-card';
+
+    const media = document.createElement('video');
+    media.src = clip.url;
+    media.muted = true;
+    media.loop = true;
+    media.autoplay = true;
+    media.playsInline = true;
+    media.setAttribute('aria-label', `Live moment ${index + 1}`);
+
+    const download = document.createElement('button');
+    download.className = 'btn-live-download';
+    download.type = 'button';
+    download.textContent = 'Download live';
+    download.addEventListener('click', () => downloadLiveClip(clip, index));
+
+    card.append(media, download);
+    livePreview.appendChild(card);
+  });
+}
+
+function downloadLiveClip(clip, index) {
+  const link = document.createElement('a');
+  link.href = clip.url;
+  link.download = `photobooth-live-${index + 1}-${Date.now()}.webm`;
+  link.click();
+}
+
+function downloadAllLiveClips() {
+  if (!liveClips.length) { alert('Take a photo first to create a live moment.'); return; }
+  liveClips.forEach((clip, index) => {
+    setTimeout(() => downloadLiveClip(clip, index), index * 180);
+  });
+}
+
+function downloadBoth() {
+  if (!capturedPhotos.length && !liveClips.length) {
+    alert('Take a photo first!');
+    return;
+  }
+  if (capturedPhotos.length) downloadCollage();
+  if (liveClips.length) downloadAllLiveClips();
 }
 
 function renderStrip() {
@@ -495,12 +610,18 @@ function downloadCollage() {
     ctx.fillText(`${date}`, totalW / 2, totalH - pad / 2);
 
     // PNG export — lossless, exact pixels, no recompression
-    const link = document.createElement('a');
-    link.download = `photobooth-${Date.now()}.png`;
-    link.href = finalCanvas.toDataURL('image/png');
-    link.click();
-
-    hideToast();
+    // Blob export avoids holding another large base64 copy in memory. PNG
+    // remains lossless and the canvas keeps every native camera pixel.
+    finalCanvas.toBlob(blob => {
+      if (!blob) { hideToast(); return; }
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `photobooth-${Date.now()}.png`;
+      link.href = url;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      hideToast();
+    }, 'image/png');
   });
 }
 

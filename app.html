@@ -7,17 +7,22 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div class="app-background" aria-hidden="true">
+    <span class="app-blob app-blob-blue"></span>
+    <span class="app-blob app-blob-pink"></span>
+    <span class="app-blob app-blob-green"></span>
+  </div>
   <div class="app">
 
     <!-- Header -->
     <header class="header">
-      <a href="landing.html" class="back-link" aria-label="Back to home">
+      <a href="index.html" class="back-link" aria-label="Back to home">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
           <line x1="19" y1="12" x2="5" y2="12"/>
           <polyline points="12 19 5 12 12 5"/>
         </svg>
       </a>
-      <h1>Photobooth Web Simulator</h1>
+      <h1><span>Photobooth</span> <em>studio</em></h1>
       <span class="header-spacer" aria-hidden="true"></span>
     </header>
 
@@ -52,6 +57,7 @@
     <!-- ════════════════════════════════════════
          SECTION 2 — PHOTO GRID OPTION
          ════════════════════════════════════════ -->
+    <div class="controls-panel">
     <section class="app-section" aria-labelledby="grid-title">
       <h2 class="section-title" id="grid-title">
         <span class="section-icon">▦</span> Photo Grid Option
@@ -101,6 +107,8 @@
       </div>
     </section>
 
+    </div>
+
     <!-- Collage preview -->
     <section class="app-section preview-section" aria-labelledby="preview-title">
       <h2 class="section-title" id="preview-title">
@@ -115,11 +123,28 @@
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Download
+            Still
           </button>
+          <button class="btn-download btn-download-soft" id="btnDownloadLive">Live</button>
+          <button class="btn-download" id="btnDownloadBoth">Both</button>
         </div>
         <div class="preview-canvas" id="collagePreview">
           <div class="empty-strip">No photos yet</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-section live-section" aria-labelledby="live-title">
+      <h2 class="section-title" id="live-title">
+        <span class="section-icon">&#9679;</span> Live moments
+      </h2>
+      <div class="section-body">
+        <div class="live-preview-heading">
+          <span><i class="live-dot" aria-hidden="true"></i> Motion captured with each photo</span>
+          <small>2.5 seconds</small>
+        </div>
+        <div class="live-preview-list" id="livePreview">
+          <p class="live-empty">Your live moments will appear here.</p>
         </div>
       </div>
     </section>
