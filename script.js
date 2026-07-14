@@ -205,7 +205,7 @@ async function startCamera() {
 }
 
 // ── Particle Animation ────────────────────────────────────────
-const PARTICLE_EMOJIS = ['✨','🌸','💕','⭐','🌟','💫','🌺','💖'];
+const PARTICLE_EMOJIS = ['','','','','','','',''];
 const particles = [];
 
 function spawnParticle() {
