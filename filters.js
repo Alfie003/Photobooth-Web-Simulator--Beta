@@ -200,6 +200,53 @@ const AESTHETIC_FILTERS = [
     vignetteStr: 0.30, grainAmount: 0.015, bloomStr: 0.22,
     fadeAmount: 0.20, warmth: -0.02, overexpose: 0,
   },
+
+  // ── B&W Variants ────────────────────────────────────────────
+
+  {
+    id: 'bw_classic',
+    label: 'B&W Classic',
+    icon: '⬛',
+    // Pure desaturated, balanced contrast — clean timeless black & white
+    brightness: 0.0, contrast: 1.05, saturation: 0.0,
+    tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
+    liftRGB: [0.0, 0.0, 0.0], liftAmount: 0.0,
+    vignetteStr: 0.30, grainAmount: 0.0, bloomStr: 0.0,
+    fadeAmount: 0.0, warmth: 0.0, overexpose: 0,
+  },
+  {
+    id: 'bw_noir',
+    label: 'B&W Noir',
+    icon: '🖤',
+    // High contrast, deep blacks, bright whites — dramatic film noir look
+    brightness: -0.05, contrast: 1.35, saturation: 0.0,
+    tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
+    liftRGB: [0.0, 0.0, 0.0], liftAmount: 0.0,
+    vignetteStr: 1.10, grainAmount: 0.018, bloomStr: 0.0,
+    fadeAmount: 0.0, warmth: 0.0, overexpose: 0,
+  },
+  {
+    id: 'bw_soft',
+    label: 'B&W Soft',
+    icon: '🤍',
+    // Lifted blacks, reduced contrast, matte grey tones — airy editorial feel
+    brightness: 0.06, contrast: 0.82, saturation: 0.0,
+    tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
+    liftRGB: [0.18, 0.18, 0.18], liftAmount: 0.16,
+    vignetteStr: 0.10, grainAmount: 0.006, bloomStr: 0.25,
+    fadeAmount: 0.18, warmth: 0.0, overexpose: 0,
+  },
+  {
+    id: 'bw_silver',
+    label: 'B&W Silver',
+    icon: '🪨',
+    // Film grain, deep vignette, faded blacks — vintage silver gelatin print look
+    brightness: 0.02, contrast: 1.08, saturation: 0.0,
+    tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
+    liftRGB: [0.08, 0.08, 0.08], liftAmount: 0.10,
+    vignetteStr: 0.80, grainAmount: 0.08, bloomStr: 0.05,
+    fadeAmount: 0.10, warmth: 0.0, overexpose: 0,
+  },
 ];
 
 // ── GLSL Shaders ─────────────────────────────────────────────
