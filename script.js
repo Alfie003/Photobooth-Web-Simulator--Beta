@@ -188,7 +188,7 @@ async function startCamera() {
 }
 
 // ── Particle Animation ────────────────────────────────────────
-const PARTICLE_EMOJIS = ['✨','🌸','💕','⭐','🌟','💫','🌺','💖'];
+const PARTICLE_SYMBOLS = ['.', '+', '*'];
 const particles = [];
 
 function spawnParticle() {
@@ -197,7 +197,7 @@ function spawnParticle() {
     x: Math.random(), y: 1.1,
     vx: (Math.random() - 0.5) * 0.008,
     vy: -(0.004 + Math.random() * 0.006),
-    emoji: PARTICLE_EMOJIS[Math.floor(Math.random() * PARTICLE_EMOJIS.length)],
+    symbol: PARTICLE_SYMBOLS[Math.floor(Math.random() * PARTICLE_SYMBOLS.length)],
     size: 14 + Math.random() * 12,
     life: 1, decay: 0.008 + Math.random() * 0.006,
   });
@@ -213,7 +213,7 @@ function startParticleAnimation() {
       if (p.life <= 0 || p.y < -0.1) { particles.splice(i, 1); continue; }
       overlayCtx.globalAlpha = p.life;
       overlayCtx.font = `${p.size}px serif`;
-      overlayCtx.fillText(p.emoji, p.x * overlayCanvas.width, p.y * overlayCanvas.height);
+      overlayCtx.fillText(p.symbol, p.x * overlayCanvas.width, p.y * overlayCanvas.height);
       overlayCtx.globalAlpha = 1;
     }
     requestAnimationFrame(draw);
