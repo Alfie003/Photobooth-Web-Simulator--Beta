@@ -206,7 +206,7 @@ const AESTHETIC_FILTERS = [
   {
     id: 'bw_classic',
     label: 'B&W Classic',
-    icon: '',
+    icon: '⬛',
     // Pure desaturated, balanced contrast — clean timeless black & white
     brightness: 0.0, contrast: 1.05, saturation: 0.0,
     tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
@@ -217,7 +217,7 @@ const AESTHETIC_FILTERS = [
   {
     id: 'bw_noir',
     label: 'B&W Noir',
-    icon: '',
+    icon: '🖤',
     // High contrast, deep blacks, bright whites — dramatic film noir look
     brightness: -0.05, contrast: 1.35, saturation: 0.0,
     tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
@@ -228,7 +228,7 @@ const AESTHETIC_FILTERS = [
   {
     id: 'bw_soft',
     label: 'B&W Soft',
-    icon: '',
+    icon: '🤍',
     // Lifted blacks, reduced contrast, matte grey tones — airy editorial feel
     brightness: 0.06, contrast: 0.82, saturation: 0.0,
     tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
@@ -239,7 +239,7 @@ const AESTHETIC_FILTERS = [
   {
     id: 'bw_silver',
     label: 'B&W Silver',
-    icon: '',
+    icon: '🪨',
     // Film grain, deep vignette, faded blacks — vintage silver gelatin print look
     brightness: 0.02, contrast: 1.08, saturation: 0.0,
     tintRGB: [1.0, 1.0, 1.0], tintStrength: 0.0,
